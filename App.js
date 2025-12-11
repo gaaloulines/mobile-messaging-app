@@ -10,6 +10,9 @@ import ChatScreen from './screens/chatScreen';
 // IMPORT HOME (This contains your Tabs/Navbar)
 // Adjust the path './screens/Home' depending on where Home.js is located
 import Home from './screens/Home'; 
+import GroupListScreen from './screens/Home/groupchat/GroupListScreen';
+import GroupChatScreen from './screens/Home/groupchat/GroupChatScreen';
+import GroupSettingsScreen from './screens/Home/groupchat/GroupSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,6 +52,23 @@ export default function App() {
           name="Chat" 
           component={ChatScreen} 
           options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="GroupList" 
+          component={GroupListScreen} 
+          options={{ title: 'Groups' }} 
+        />
+        
+        <Stack.Screen 
+          name="GroupChat" 
+          component={GroupChatScreen} 
+          options={{ headerShown: false }} // We use a custom header in the component
+        />
+        
+        <Stack.Screen 
+          name="GroupSettings" 
+          component={GroupSettingsScreen} 
+          options={{ title: 'Group Settings' }} 
         />
 
       </Stack.Navigator>
