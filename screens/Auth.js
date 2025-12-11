@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   ImageBackground,
   Alert,
-  ActivityIndicator // Added for visual feedback while checking DB
+  ActivityIndicator 
 } from 'react-native';
 
 // 1. IMPORT DATABASE FUNCTIONS
@@ -21,7 +21,7 @@ const image = require('../assets/bg-image.png');
 export default function Auth({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false); // Added loading state
+  const [loading, setLoading] = useState(false); 
 
 const handleSignIn = () => {
     if (!email || !password) {
@@ -36,7 +36,7 @@ const handleSignIn = () => {
         const user = userCredential.user;
         console.log('Signed in as:', user.email);
 
-        // --- CHECK DATABASE FOR PHONE NUMBER ---
+       // 2. CHECK DATABASE FOR 'number' FIELD
         const db = getDatabase(app);
         const userRef = ref(db, `all_accounts/${user.uid}`);
 
@@ -47,7 +47,6 @@ const handleSignIn = () => {
 
           if (snapshot.exists()) {
             const userData = snapshot.val();
-            // Check if 'number' exists AND is not an empty string
             if (userData.number && userData.number.trim().length > 0) {
               isProfileComplete = true;
             }
@@ -120,7 +119,7 @@ const handleSignIn = () => {
           <TouchableOpacity 
             style={styles.primaryButton} 
             onPress={handleSignIn}
-            disabled={loading} // Disable button while checking
+            disabled={loading} 
           >
             {loading ? (
               <ActivityIndicator color="#fff" />

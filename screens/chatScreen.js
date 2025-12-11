@@ -19,10 +19,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { getDatabase, ref, push, onValue, update } from 'firebase/database';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking'; 
-// --- NEW: Import Location ---
 import * as Location from 'expo-location'; 
-
-// IMPORTS
 import { auth, app, supabase } from '../config/index.js';
 
 const { width } = Dimensions.get('window');
@@ -32,15 +29,11 @@ const ChatScreen = () => {
   const route = useRoute();
   const flatListRef = useRef(null);
   
-  // Data State
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
-  // --- NEW: Loading state for location ---
   const [sendingLocation, setSendingLocation] = useState(false);
-
-  // UI State
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
   
   const currentUser = auth.currentUser;
@@ -145,7 +138,7 @@ const ChatScreen = () => {
     setUploading(true);
     try {
       const ext = uri.substring(uri.lastIndexOf('.') + 1);
-      const fileName = `${roomId}_${Date.now()}.${ext}`;
+      const fileName = `${roomId}_${Date.now()}.${ext}`; //set unique filename
 
       const formData = new FormData();
       const uriFixed = Platform.OS === 'android' && !uri.startsWith('file://') 
@@ -259,7 +252,6 @@ const ChatScreen = () => {
   const renderMessage = ({ item }) => {
     const isMe = item.senderId === currentUser.uid;
 
-    // --- NEW: Helper to render content based on type ---
     const renderContent = () => {
       if (item.type === 'image') {
         return (
@@ -270,7 +262,6 @@ const ChatScreen = () => {
           />
         );
       } else if (item.type === 'location') {
-        // --- NEW: Location Bubble ---
         return (
           <TouchableOpacity 
             onPress={() => Linking.openURL(item.mapUrl)}
@@ -379,11 +370,11 @@ const ChatScreen = () => {
       {/* INPUT AREA */}
       <View style={styles.inputContainer}>
         {uploading || sendingLocation ? (
-           // --- NEW: Shows indicator if uploading OR sending location ---
+  
            <ActivityIndicator size="small" color="#5426c0" style={{marginRight: 10}}/>
         ) : (
           <>
-            {/* --- NEW: Changed add-circle to location icon with handler --- */}
+  
             <TouchableOpacity style={styles.iconButton} onPress={handleSendLocation}>
               <Ionicons name="location" size={28} color="#5426c0" />
             </TouchableOpacity>

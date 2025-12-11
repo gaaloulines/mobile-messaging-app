@@ -5,7 +5,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker'; 
 
-// IMPORTS
 import { auth, app, supabase } from '../../config/index.js'; 
 import { onAuthStateChanged, signOut, deleteUser, updateProfile } from 'firebase/auth';
 import { getDatabase, ref, set, remove, get, update, child } from 'firebase/database';
@@ -17,16 +16,16 @@ const MyAccount = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // UI State
+
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Form Data
-  const [displayName, setDisplayName] = useState(''); // This acts as 'nom'
-  const [phoneNumber, setPhoneNumber] = useState(''); // This acts as 'number'
-  const [profileImage, setProfileImage] = useState(null); // This acts as 'picture'
 
-  // --- 1. LOAD USER DATA ---
+  const [displayName, setDisplayName] = useState(''); 
+  const [phoneNumber, setPhoneNumber] = useState(''); 
+  const [profileImage, setProfileImage] = useState(null); 
+
+ 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -34,19 +33,16 @@ const MyAccount = () => {
         if (currentUser) {
           setUser(currentUser);
           
-          // Default from Auth
+          
           setDisplayName(currentUser.displayName || '');
           setProfileImage(currentUser.photoURL); 
 
-          // Fetch from Realtime DB (all_accounts)
+          
           const snapshot = await get(child(ref(db), `all_accounts/${currentUser.uid}`));
           if (snapshot.exists()) {
             const data = snapshot.val();
-            // Map 'nom' to displayName input
             setDisplayName(data.nom || currentUser.displayName || '');
-            // Map 'number' to phoneNumber input
             setPhoneNumber(data.number || '');
-            // Map 'picture' to profileImage
             if(data.picture) setProfileImage(data.picture);
           }
         }
@@ -65,7 +61,7 @@ const MyAccount = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- 2. PICK IMAGE ---
+
   const pickImage = async () => {
     try {
       if (!isEditing) return;
@@ -91,13 +87,13 @@ const MyAccount = () => {
     }
   };
 
-  // --- 3. UPLOAD TO SUPABASE ---
+
   const uploadImageToSupabase = async (uri) => {
     setUploading(true);
     try {
       const currentUser = auth.currentUser;
       const ext = uri.substring(uri.lastIndexOf('.') + 1);
-      const fileName = `${currentUser.uid}_${Date.now()}.${ext}`;
+      const fileName = `${currentUser.uid}_${Date.now()}.${ext}`; //set unique filename
 
       const formData = new FormData();
       
@@ -114,7 +110,7 @@ const MyAccount = () => {
       const supabaseUrl = supabase.supabaseUrl;
       const supabaseKey = supabase.supabaseKey;
 
-      // Ensure your bucket is 'profileimages'
+
       const fileUrl = `${supabaseUrl}/storage/v1/object/profileimages/${fileName}`;
       
       const response = await fetch(fileUrl, {
@@ -146,7 +142,7 @@ const MyAccount = () => {
     }
   };
 
-  // --- 4. SAVE CHANGES (Updated for all_accounts) ---
+
   const handleSave = async () => {
     if (!displayName) return Alert.alert("Error", "Name is required.");
     setLoading(true);
@@ -154,20 +150,18 @@ const MyAccount = () => {
     try {
       const currentUser = auth.currentUser;
       
-      // Update Firebase Auth
+      // Update Firebase 
       await updateProfile(currentUser, { 
         displayName: displayName, 
         photoURL: profileImage 
       });
-
-      // Update Realtime Database ('all_accounts')
       const updates = {};
       const basePath = `all_accounts/${currentUser.uid}`;
       
-      updates[`${basePath}/nom`] = displayName;      // Match List.js
-      updates[`${basePath}/pseudo`] = displayName;   // Keeping pseudo same as name for simplicity
-      updates[`${basePath}/number`] = phoneNumber;   // Match List.js
-      updates[`${basePath}/picture`] = profileImage; // Match List.js (picture)
+      updates[`${basePath}/nom`] = displayName;      
+      updates[`${basePath}/pseudo`] = displayName;   
+      updates[`${basePath}/number`] = phoneNumber;  
+      updates[`${basePath}/picture`] = profileImage; 
       
       await update(ref(db), updates);
 
@@ -180,7 +174,7 @@ const MyAccount = () => {
     }
   };
 
-  // --- UI ACTIONS ---
+ 
   const handleDeleteAccount = () => {
     if (!user) return;
     Alert.alert(
@@ -195,7 +189,7 @@ const MyAccount = () => {
 
   const confirmDeleteAccount = async () => {
     try {
-      // Remove from all_accounts
+    
       const userRef = ref(db, `all_accounts/${user.uid}`);
       await remove(userRef);
       await deleteUser(user);
@@ -218,7 +212,6 @@ const MyAccount = () => {
 
   const cancelEditing = () => {
     setIsEditing(false);
-    // Revert changes from User object or reload from DB
     setDisplayName(user?.displayName || '');
     setProfileImage(user?.photoURL); 
   };

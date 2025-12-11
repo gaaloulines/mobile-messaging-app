@@ -3,9 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons'; 
 
 import Group from './Home/Group';
-import List from './Home/List'; // Ensure path is correct
-import MyAccount from './Home/MyAccount'; // Ensure path is correct
-// Removed ChatScreen import from here
+import List from './Home/List'; 
+import MyAccount from './Home/MyAccount'; 
+
 
 const Tab = createBottomTabNavigator();
 
@@ -35,7 +35,7 @@ export default function Home() {
       <Tab.Screen name="Group" component={Group} />
       <Tab.Screen name="My Account" component={MyAccount} />
       
-      {/* Removed Chat Tab. You access Chat by clicking an item in the List */}
+      
       
     </Tab.Navigator>
   );

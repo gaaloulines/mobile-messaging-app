@@ -1,7 +1,6 @@
 import { StyleSheet, Text, View, FlatList, TextInput, TouchableOpacity, Image, Platform, Linking, Alert } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { getDatabase, ref, onValue } from 'firebase/database'
-// Import 'auth' to get the current user's ID
 import { app, auth } from '../../config/index.js' 
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
@@ -13,7 +12,7 @@ const List = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const navigation = useNavigation()
 
-  // Get current user ID
+ 
   const currentUserId = auth.currentUser?.uid
 
   useEffect(() => {
@@ -27,7 +26,7 @@ const List = () => {
         const accountKey = childSnapshot.key
         const accountData = childSnapshot.val()
 
-        // FILTER: Only add the account if the Key (UID) is NOT the current user
+        //  Only add the account if the Key (UID) is NOT the current user
         if (accountKey !== currentUserId) {
           accounts.push({
             id: accountKey,
@@ -58,7 +57,7 @@ const List = () => {
     }
   }, [searchQuery, data])
 
-  // --- UPDATED CALL FUNCTION ---
+
   const handleCall = (phoneNumber) => {
     if (phoneNumber && phoneNumber.length > 0) {
       // Use the 'tel:' scheme to open the dialer

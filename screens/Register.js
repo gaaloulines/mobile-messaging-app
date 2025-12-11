@@ -13,7 +13,7 @@ import {
 
 import { auth, app } from '../config/index.js';
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { getDatabase, ref, set } from "firebase/database"; // <--- Import Database functions
+import { getDatabase, ref, set } from "firebase/database"; 
 
 const image = require('../assets/bg-image.png');
 
@@ -22,10 +22,9 @@ export default function Register({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false); // Added loading state
+  const [loading, setLoading] = useState(false); 
 
   const handleRegister = async () => {
-    // --- 1. Input Validation ---
     if (!username || !email || !password || !confirmPassword) {
       Alert.alert('Missing Fields', 'Please fill in all fields.');
       return;
@@ -37,23 +36,23 @@ export default function Register({ navigation }) {
 
     setLoading(true);
 
-    // --- 2. Firebase User Creation ---
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       console.log('Registered Auth:', user.email);
 
-      // --- 3. SAVE TO REALTIME DATABASE (Crucial Step) ---
+  
       const db = getDatabase(app);
       const userRef = ref(db, `all_accounts/${user.uid}`);
 
       await set(userRef, {
         id: user.uid,
-        nom: username,        // Using username as 'nom'
-        pseudo: username,     // Using username as 'pseudo'
+        nom: username,        
+        pseudo: username,     
         email: email,
-        number: "",           // Placeholder if you add phone input later
-        picture: "" // Default avatar
+        number: "",           
+        picture: "" 
       });
 
       setLoading(false);
