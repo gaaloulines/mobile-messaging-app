@@ -1,12 +1,33 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, ActivityIndicator, TextInput, Platform } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  Image, 
+  TouchableOpacity, 
+  Alert, 
+  ActivityIndicator, 
+  TextInput, 
+  Platform,
+  Modal, // 1. Added Modal
+  KeyboardAvoidingView 
+} from 'react-native';
 import React, { useState, useEffect } from 'react'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { auth, app, supabase } from '../../config/index.js'; 
-import { onAuthStateChanged, signOut, deleteUser, updateProfile } from 'firebase/auth';
+// 2. Added EmailAuthProvider and reauthenticateWithCredential
+import { 
+  onAuthStateChanged, 
+  signOut, 
+  deleteUser, 
+  updateProfile, 
+  EmailAuthProvider, 
+  reauthenticateWithCredential 
+} from 'firebase/auth';
 import { getDatabase, ref, set, remove, get, update, child } from 'firebase/database';
 
 const MyAccount = () => {
@@ -16,14 +37,17 @@ const MyAccount = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
-
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
-
 
   const [displayName, setDisplayName] = useState(''); 
   const [phoneNumber, setPhoneNumber] = useState(''); 
   const [profileImage, setProfileImage] = useState(null); 
+
+  // --- NEW STATE FOR DELETE MODAL ---
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
  
   useEffect(() => {
@@ -33,11 +57,9 @@ const MyAccount = () => {
         if (currentUser) {
           setUser(currentUser);
           
-          
           setDisplayName(currentUser.displayName || '');
           setProfileImage(currentUser.photoURL); 
 
-          
           const snapshot = await get(child(ref(db), `all_accounts/${currentUser.uid}`));
           if (snapshot.exists()) {
             const data = snapshot.val();
@@ -93,7 +115,7 @@ const MyAccount = () => {
     try {
       const currentUser = auth.currentUser;
       const ext = uri.substring(uri.lastIndexOf('.') + 1);
-      const fileName = `${currentUser.uid}_${Date.now()}.${ext}`; //set unique filename
+      const fileName = `${currentUser.uid}_${Date.now()}.${ext}`; 
 
       const formData = new FormData();
       
@@ -109,7 +131,6 @@ const MyAccount = () => {
 
       const supabaseUrl = supabase.supabaseUrl;
       const supabaseKey = supabase.supabaseKey;
-
 
       const fileUrl = `${supabaseUrl}/storage/v1/object/profileimages/${fileName}`;
       
@@ -150,7 +171,6 @@ const MyAccount = () => {
     try {
       const currentUser = auth.currentUser;
       
-      // Update Firebase 
       await updateProfile(currentUser, { 
         displayName: displayName, 
         photoURL: profileImage 
@@ -166,6 +186,21 @@ const MyAccount = () => {
       await update(ref(db), updates);
 
       setIsEditing(false);
+const cacheData = {
+    uid: currentUser.uid,
+    email: currentUser.email,
+    nom: displayName,      // Matches your DB field
+    pseudo: displayName,   // Matches your DB field
+    number: phoneNumber,   // Matches your DB field
+    picture: profileImage  // Matches your DB field
+};
+
+// Update State (Optional, but good for UI)
+// Note: You might need to merge this with your existing user state if you use other fields
+setUser({ ...user, ...cacheData }); 
+
+// Update Cache
+await AsyncStorage.setItem('currentUser', JSON.stringify(cacheData));
       Alert.alert("Success", "Profile updated!");
     } catch (error) { 
       Alert.alert("Error", "Save failed: " + error.message); 
@@ -174,31 +209,64 @@ const MyAccount = () => {
     }
   };
 
- 
+
+
+  // 1. Triggered by the "Delete Account" button
   const handleDeleteAccount = () => {
     if (!user) return;
-    Alert.alert(
-      'Delete Account',
-      'Are you sure? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: confirmDeleteAccount },
-      ]
-    );
+    // Open the modal instead of the immediate Alert
+    setDeleteModalVisible(true);
   };
 
-  const confirmDeleteAccount = async () => {
+  // 2. Triggered by the "Delete" button inside the Modal
+  const onConfirmDelete = async () => {
+    if (!deletePassword) {
+      Alert.alert('Error', 'Please enter your password.');
+      return;
+    }
+
+    setIsDeleting(true);
+
     try {
-    
-      const userRef = ref(db, `all_accounts/${user.uid}`);
+      const currentUser = auth.currentUser;
+
+      // A. Create credentials
+      const credential = EmailAuthProvider.credential(currentUser.email, deletePassword);
+
+      // B. Re-authenticate (Required for sensitive operations)
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // C. Delete from Realtime Database
+      const userRef = ref(db, `all_accounts/${currentUser.uid}`);
       await remove(userRef);
-      await deleteUser(user);
+
+      // D. Delete Auth User
+      await deleteUser(currentUser);
+
+      setDeleteModalVisible(false);
       Alert.alert('Success', 'Account deleted.');
       navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+      
     } catch (error) {
-      Alert.alert('Error', 'Please login again to delete account.');
+      console.log('Delete Error', error);
+      setIsDeleting(false); // Stop loading only on error
+
+      if (error.code === 'auth/wrong-password') {
+        Alert.alert('Error', 'Incorrect password.');
+      } else {
+        Alert.alert('Error', 'Failed to delete account. ' + error.message);
+      }
     }
   };
+
+  // 3. Reset modal state
+  const closeDeleteModal = () => {
+    setDeleteModalVisible(false);
+    setDeletePassword('');
+    setIsDeleting(false);
+  };
+  // --- MODIFIED DELETE FLOW END ---
+
 
   const handleLogout = () => {
     signOut(auth).catch((error) => { Alert.alert("Error", error.message); });
@@ -315,6 +383,60 @@ const MyAccount = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* --- DELETE CONFIRMATION MODAL --- */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeDeleteModal}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.modalWarning}>
+              Are you sure? This action cannot be undone. All your data will be permanently removed.
+            </Text>
+            
+            <Text style={styles.modalLabel}>Enter your password to confirm:</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Password"
+              placeholderTextColor="#999"
+              secureTextEntry={true}
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              autoCapitalize="none"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalCancelBtn]} 
+                onPress={closeDeleteModal}
+                disabled={isDeleting}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalDeleteBtn]} 
+                onPress={onConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -348,4 +470,75 @@ const styles = StyleSheet.create({
   deleteButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   logoutButton: { width: '100%', height: 50, backgroundColor: '#34495e', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   logoutButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+
+  // --- MODAL STYLES ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 25,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalWarning: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 25,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtn: {
+    backgroundColor: '#ccc',
+  },
+  modalDeleteBtn: {
+    backgroundColor: '#e74c3c',
+  },
+  modalBtnText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

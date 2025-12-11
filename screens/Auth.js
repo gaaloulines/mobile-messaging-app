@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,10 +8,11 @@ import {
   TouchableOpacity,
   ImageBackground,
   Alert,
-  ActivityIndicator 
+  ActivityIndicator
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import { Ionicons } from '@expo/vector-icons'; 
 
-// 1. IMPORT DATABASE FUNCTIONS
 import { auth, app } from '../config/index.js';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { getDatabase, ref, get } from "firebase/database"; 
@@ -22,8 +23,29 @@ export default function Auth({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false); 
+  const [rememberMe, setRememberMe] = useState(false);
 
-const handleSignIn = () => {
+  // 1. Check for saved credentials (LOGIN CREDENTIALS) on load
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem('user_email');
+        const savedPassword = await AsyncStorage.getItem('user_password');
+        
+        if (savedEmail && savedPassword) {
+          setEmail(savedEmail);
+          setPassword(savedPassword);
+          setRememberMe(true);
+        }
+      } catch (error) {
+        console.log('Error loading credentials', error);
+      }
+    };
+
+    loadCredentials();
+  }, []);
+
+  const handleSignIn = () => {
     if (!email || !password) {
       Alert.alert("Input Required", "Please enter both email and password.");
       return;
@@ -34,9 +56,21 @@ const handleSignIn = () => {
     signInWithEmailAndPassword(auth, email, password)
       .then(async (userCredential) => {
         const user = userCredential.user;
-        console.log('Signed in as:', user.email);
+        
+        // 2. Handle Remember Me Logic (Save or Clear Login Credentials)
+        try {
+          if (rememberMe) {
+            await AsyncStorage.setItem('user_email', email);
+            await AsyncStorage.setItem('user_password', password);
+          } else {
+            await AsyncStorage.removeItem('user_email');
+            await AsyncStorage.removeItem('user_password');
+          }
+        } catch (storageError) {
+          console.log('Error saving credentials', storageError);
+        }
 
-       // 2. CHECK DATABASE FOR 'number' FIELD
+        // Database Check & DATA CACHING
         const db = getDatabase(app);
         const userRef = ref(db, `all_accounts/${user.uid}`);
 
@@ -44,28 +78,43 @@ const handleSignIn = () => {
           const snapshot = await get(userRef);
           
           let isProfileComplete = false;
+          let userData = {};
 
           if (snapshot.exists()) {
-            const userData = snapshot.val();
+            userData = snapshot.val();
+            
+            // 3. CACHE USER DATA (Simple & Efficient)
+            // We combine Auth UID with DB data for a complete profile object
+            const completeUserProfile = {
+              uid: user.uid,
+              email: user.email,
+              ...userData 
+            };
+
+            await AsyncStorage.setItem('currentUser', JSON.stringify(completeUserProfile));
+
+            // Check if profile is complete
             if (userData.number && userData.number.trim().length > 0) {
               isProfileComplete = true;
             }
+          } else {
+            // Even if no DB data exists, cache the basic Auth info
+            const basicUser = { uid: user.uid, email: user.email };
+            await AsyncStorage.setItem('currentUser', JSON.stringify(basicUser));
           }
 
           if (isProfileComplete) {
-            // Number is initialized -> Go to Default Home (List)
+            // Number is initialized -> Go to Default Home
             navigation.replace('Home');
           } else {
-            // Number is empty string -> Redirect to My Account tab
+            // Number is empty -> Redirect to My Account tab
             Alert.alert("Profile Incomplete", "Please complete your profile by adding your Phone Number.");
-            
-            // Navigate to the 'Home' stack, specifically the 'My Account' tab
             navigation.replace('Home', { screen: 'My Account' });
           }
 
         } catch (dbError) {
           console.error("Database check failed:", dbError);
-          // Fallback: If DB check fails, go to Home to avoid locking user out
+          // Fallback
           navigation.replace('Home');
         } finally {
           setLoading(false);
@@ -83,6 +132,10 @@ const handleSignIn = () => {
 
   const handleCreateUser = () => {
     navigation.navigate('Register');
+  };
+
+  const toggleRememberMe = () => {
+    setRememberMe(!rememberMe);
   };
 
   return (
@@ -115,6 +168,16 @@ const handleSignIn = () => {
             value={password}
             onChangeText={setPassword}
           />
+
+          {/* --- Remember Me Checkbox --- */}
+          <TouchableOpacity style={styles.rememberMeContainer} onPress={toggleRememberMe} activeOpacity={0.6}>
+            <Ionicons 
+              name={rememberMe ? "checkbox" : "square-outline"} 
+              size={24} 
+              color={rememberMe ? "#5426c0" : "#999"} 
+            />
+            <Text style={styles.rememberMeText}>Remember Me</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.primaryButton} 
@@ -185,6 +248,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
+  },
+  rememberMeContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 5,
+  },
+  rememberMeText: {
+    marginLeft: 10,
+    fontSize: 15,
+    color: '#666',
   },
   primaryButton: {
     width: '100%',
